@@ -1,0 +1,8 @@
+datasets==2.18.0
+numpy==1.26.4
+rich==13.7.1
+termcolor==2.4.0
+tokenizers==0.15.2
+torch==2.2.2
+tqdm==4.66.2
+transformers==4.39.2
