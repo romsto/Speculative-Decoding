@@ -32,7 +32,7 @@ def speculative_decoding(
     temperature: float = 1,
     top_k: int = 0,
     top_p: float = 0,
-    skip_sample_adjustment: bool = True,
+    skip_sample_adjustment: bool = False,
     end_token_id: int = 1,
     use_cache: bool = True,
     target_first:bool = True,
