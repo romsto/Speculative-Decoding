@@ -32,9 +32,10 @@ def speculative_decoding(
     temperature: float = 1,
     top_k: int = 0,
     top_p: float = 0,
+    skip_sample_adjustment: bool = True,
     end_token_id: int = 1,
     use_cache: bool = True,
-    target_first=True,
+    target_first:bool = True,
     debug: bool = False,
     debug_tokenizer=None,
 ) -> Tuple[Tensor, float]:
@@ -51,6 +52,7 @@ def speculative_decoding(
         temperature: temperature for sampling.
         top_k: top_k for sampling.
         top_p: top_p for sampling.
+        skip_sample_adjustment: whether to skip the sample adjustment step when some drafts are discarded.
         end_token_id: end token id to stop generating.
         use_cache: whether to use KV cache.
         target_first: whether to do one target pass before running the speculative algorithm.
@@ -200,9 +202,9 @@ def speculative_decoding(
 
         # adjut the distribution from Mp
         p_p = norm_logits(
-            Mp.logits[..., -1, :vocabulary_limit], temperature, top_k, top_p
+            Mp.logits[..., -(gamma - n + 1), :vocabulary_limit], temperature, top_k, top_p
         )
-        if n < gamma:
+        if n < gamma and not skip_sample_adjustment:
             p_p = max_fn(p[n] - drafts_probs[n])
 
         # sample from the adjusted distribution
