@@ -1,2 +1,2 @@
-from .base_decoding import autoregressive_decoding
-from .speculative_decoding import speculative_decoding
+from .base_decoding import autoregressive_generate
+from .speculative_decoding import speculative_generate

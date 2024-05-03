@@ -1,1 +1,1 @@
-from .ngrams import NgramModel
+from .ngrams_logits import NgramModel

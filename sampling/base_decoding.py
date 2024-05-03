@@ -1,60 +1,68 @@
-from json import decoder
+from termcolor import colored
 import torch
-from torch import Tensor
 from torch.nn import Module
-from utils.sampling import norm_logits, sample
-from utils.generation import forward, decoder_start_token, is_decoder_only
+from utils.logits_processor import LogitsProcessor, GreedyProcessor
+import utils.printing as printing
+from typing import List
 
 
 @torch.no_grad()
-def autoregressive_decoding(
-    input_ids: Tensor,
+def autoregressive_generate(
+    inputs: List[int],
     model: Module,
-    max_len: int = 40,
-    temperature: float = 1,
-    top_k: int = 0,
-    top_p: float = 0,
-    end_token_id: int = 1,
+    max_gen_len: int = 40,
+    logits_processor: LogitsProcessor = GreedyProcessor(temperature=1),
+    eos_tokens_id: int | List[int] = 1,
+    pad_token_id: int = 0,
     use_cache: bool = True,
-) -> Tensor:
+    debug: bool = False,
+):
     """
-    Autoregressive decoding. Sample method depends on the top_k and top_p parameters. If top_k = 1, then greedy decoding is used. Otherwise, multinomial sampling is used.
+    Generate text sequence autoregressively based on the input sequence.
 
     Args:
-        input_ids: input/prefix sequence.
-        model: model.
-        max_len: maximum length of the output sequence.
-        temperature: temperature for sampling.
-        top_k: top_k for sampling.
-        top_p: top_p for sampling.
-        end_token_id: end token id to stop generating.
-        use_cache: whether to use KV cache.
-        
+        inputs (List[int]): input sequence of batch size 1.
+        model (Module): model to use for inference.
+        max_gen_len (int): maximum length of the generated sequence.
+        logits_processor (LogitsProcessor): logits processor for sampling.
+        eos_token_id (int): end token id.
+        pad_token_id (int): pad token id.
+        use_cache (bool): whether to use cache.
+
     Returns:
-        generated sequence.
+        List[int]: generated sequence.
+
+    Note:
+        This generation methods only works for decoder-only models.
     """
-    seq_len = 0
     cache = None
+    prompt_len = len(inputs)
+    # prepare input tensor
+    total_len = min(512, prompt_len + max_gen_len)
+    input_ids = torch.full(
+        (1, total_len), pad_token_id, dtype=torch.long, device=model.device
+    )
+    input_ids[0, :prompt_len] = torch.tensor(
+        inputs, dtype=torch.long, device=model.device
+    )
 
-    decoder_only = is_decoder_only(model)
-    decoded_input_ids = decoder_start_token(model)
+    list_tokens_id = (
+        eos_tokens_id if isinstance(eos_tokens_id, list) else [eos_tokens_id]
+    )
+    stop_tokens = torch.tensor(list_tokens_id, dtype=torch.long, device=model.device)
 
-    while seq_len < max_len:
-        output = forward(
-            model,
-            input_ids=input_ids,
-            decoded_ids=decoded_input_ids,
-            cache=cache,
-            use_cache=use_cache,
-            decoder_only=decoder_only,
-        )
-        logits = output.logits[..., -1, :]
-        cache = output.past_key_values
-        logits = norm_logits(logits, temperature, top_k, top_p)
-        xi = sample(logits)
-        decoded_input_ids = torch.cat((decoded_input_ids, xi), dim=-1)
-        seq_len += 1
-        if xi == end_token_id:
+    for curr in range(prompt_len, total_len):
+        o = model(input_ids[..., :curr], past_key_values=cache, use_cache=use_cache)
+        logits = o.logits[..., -1, :]  # [1, vocab_size]
+        probs = logits_processor(logits)  # [1, vocab_size]
+        x = logits_processor.sample(probs)  # [1, 1]
+        input_ids[0, curr] = x
+        cache = o.past_key_values
+
+        # check for end token
+        if torch.isin(x, stop_tokens):
+            if debug:
+                printing.end_token_found(curr)
             break
 
-    return decoded_input_ids
+    return input_ids[0, prompt_len : curr + 1].tolist()
