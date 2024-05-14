@@ -33,7 +33,7 @@ class GreedyProcessor(LogitsProcessor):
         return logits
 
     def sample(self, probs: Tensor) -> Tensor:
-        return torch.argmax(probs, dim=-1)
+        return torch.argmax(probs, dim=-1).unsqueeze(-1)
 
 
 class MultinomialProcessor(LogitsProcessor):

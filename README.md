@@ -3,9 +3,6 @@
 This repository is a pytorch implementation of Speculative Decoding / Speculative Sampling ([Leviathan et al., 2023](#1);[Chen et al., 2023](#2)).
 It contains the code for two generation strategies: classic auto-regressive decoding and speculative decoding. Both of these generation strategies can be used in a greedy or nucleus sampling (temperature, top k and top p) setting.
 
-Additionally, I provided the code for a custom N-gram Language Model (NLM): usage of N-gram counts in an auto-regressive way. Each step will provide the probability that each token follow the last (n-1)-gram of the input.
-This NLM can be used as the drafter in the speculative decoding strategy.
-
 ## What is Speculative Decoding?
 
 Speculative Decoding is a decoding strategy for transformers that allows to generate sequences faster than the classic auto-regressive decoding without changing the output distribution or requiring further fine-tuning. It uses a smaller, more efficient approximation model (called a "drafter") to generate speculative token prefixes. These prefixes are then evaluated in parallel by the larger target model, reducing the number of serial decoding steps required and leading to inference speedups.

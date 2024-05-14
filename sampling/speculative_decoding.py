@@ -1,10 +1,8 @@
-from numpy import printoptions
 import torch
 from torch.nn import Module
 from utils.logits_processor import LogitsProcessor, GreedyProcessor
 from utils.caching import prune_cache
 import utils.printing as printing
-from termcolor import colored
 from typing import List
 
 
@@ -51,6 +49,7 @@ def speculative_generate(
         pad_token_id (int): pad token id.
         use_cache (bool): whether to use cache.
         skip_sample_adjustment (bool): whether to skip the sample adjustment step when some drafts are discarded.
+        first_target (bool): whether to run the target model before the speculative algorithm.
         debug (bool): debug mode.
     
     Returns:
@@ -75,7 +74,7 @@ def speculative_generate(
         
     # prepare input tensor
     prompt_len = len(inputs)
-    total_len = min(512, prompt_len + max_gen_len) # TODO change 512
+    total_len = min(target.config.max_position_embeddings, prompt_len + max_gen_len)
     input_ids = torch.full((1, total_len), pad_token_id, dtype=torch.long, device=target.device)
     input_ids[0, :prompt_len] = torch.tensor(inputs, dtype=torch.long, device=target.device)
     

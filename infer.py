@@ -1,5 +1,6 @@
 import argparse
 import random
+import numpy as np
 import torch
 from sampling import autoregressive_generate, speculative_generate
 from utils.logits_processor import GreedyProcessor, MultinomialProcessor, TopKProcessor, NucleusProcessor
@@ -64,19 +65,10 @@ class InferenceCLI:
         # Target model
         target_model = "google/gemma-7b-it"  # "google/gemma-7b-it" "apple/OpenELM-3B"
         target_quantize = QuantoConfig(weights="int8")  # QuantoConfig(weights="int8")
-
-
-        multiligntext = """<bos><start_of_turn>user
-        Give me the hello world code in python<end_of_turn>
-        <start_of_turn>model
-        """
         
         # Drafter model
         drafter_model = "google/gemma-2b-it"  # "google/gemma-2b-it" "apple/OpenELM-270M"
-        drafter_ngram = 0  # if 0, it won't load ngram model
-        drafter_model_ckpt = "/workspace/models/ngrams/"
         drafter_quantize = QuantoConfig(weights="int8")  # QuantoConfig(weights="int8")
-        drafter_model_type = "causal"  # "causal", "ngram"
 
         print(colored("Target model:", on_color="on_yellow"), target_model)
         print(colored("Drafter model:", on_color="on_yellow"), drafter_model)
@@ -96,21 +88,12 @@ class InferenceCLI:
             print(colored("Warning: Tokenizer is different from target model. Use with caution.", "red"))
         self.tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
 
-        if drafter_ngram == 0 or drafter_model_type != "ngram":
-            self.drafter = AutoModelForCausalLM.from_pretrained(
-                drafter_model,
-                quantization_config=drafter_quantize,
-                device_map=self.device,
-                trust_remote_code=True,
-            )
-        else:
-            self.drafter = NgramModel(
-                n=drafter_ngram,
-                vocab_size=len(self.tokenizer),
-                device=self.device,
-                resume=drafter_model_ckpt,
-            )
-            self.drafter.to(self.device)
+        self.drafter = AutoModelForCausalLM.from_pretrained(
+            drafter_model,
+            quantization_config=drafter_quantize,
+            device_map=self.device,
+            trust_remote_code=True,
+        )
         self.drafter.eval()
 
     def _perform_command(self, command: str):
@@ -229,8 +212,7 @@ class InferenceCLI:
         drafter_throughput = 0.0
 
         if self.spec:
-            random.seed(42)
-            torch.manual_seed(42)
+            self._set_seed(42)
             spec_start_time = time.time()
             output_ids, accept_rate = speculative_generate(
                 tokenized,
@@ -254,8 +236,7 @@ class InferenceCLI:
             print(colored("========== Speculative ==========", "green"))
 
         if self.target_gen:
-            random.seed(42)
-            torch.manual_seed(42)
+            self._set_seed(42)
             start_time = time.time()
             output_ids = autoregressive_generate(
                 tokenized,
@@ -267,7 +248,6 @@ class InferenceCLI:
                 debug=self.debug,
             )
             end_time = time.time()
-            #output = self.tokenizer.decode(output_ids[0], skip_special_tokens=True)
             output = self.tokenizer.decode(output_ids, skip_special_tokens=True)
             print(colored("=========== Target AR ===========", "blue"))
             print(colored("Out:", "blue"), output)
@@ -283,8 +263,7 @@ class InferenceCLI:
                 )
 
         if self.dr:
-            random.seed(42)
-            torch.manual_seed(42)
+            self._set_seed(42)
             output_ids = autoregressive_generate(
                 tokenized,
                 self.drafter,
@@ -310,6 +289,15 @@ class InferenceCLI:
                 continue
 
             self._infer(command)
+            
+    def _set_seed(self, seed: int):
+        random.seed(seed)
+        np.random.seed(seed)
+        torch.manual_seed(seed)
+        torch.cuda.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed)
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
 
 
 if __name__ == "__main__":
