@@ -32,6 +32,7 @@ class InferenceCLI:
         self.dr = False
         self.cache = True
         self.target_gen = True
+        self.chat = True # If using a chat instructed model, set to True
         
         self.processors = {
             "greedy": {
@@ -95,6 +96,8 @@ class InferenceCLI:
             trust_remote_code=True,
         )
         self.drafter.eval()
+        
+        self.end_tokens = self.tokenizer.eos_token_id
 
     def _perform_command(self, command: str):
         args = command.split(" ")
@@ -205,6 +208,9 @@ class InferenceCLI:
         
 
     def _infer(self, prefix: str):
+        if self.chat:
+            prefix = self.tokenizer.apply_chat_template(prefix, add_generation_prompt=True, tokenize=False)
+            
         tokenized = self.tokenizer(prefix, return_tensors="pt").input_ids[0].tolist()
 
         spec_throughput = 0.0
@@ -222,7 +228,7 @@ class InferenceCLI:
                 logits_processor=self.processor,
                 gamma=self.gamma,
                 max_gen_len=self.gen_len,
-                eos_tokens_id=self.tokenizer.eos_token_id,
+                eos_tokens_id=self.end_tokens,
                 debug=self.debug,
                 use_cache=self.cache,
             )
@@ -243,7 +249,7 @@ class InferenceCLI:
                 self.target,
                 use_cache=self.cache,
                 max_gen_len=self.gen_len,
-                eos_tokens_id=self.tokenizer.eos_token_id,
+                eos_tokens_id=self.end_tokens,
                 logits_processor=self.processor,
                 debug=self.debug,
             )
@@ -269,7 +275,7 @@ class InferenceCLI:
                 self.drafter,
                 use_cache=self.cache,
                 max_gen_len=self.gen_len,
-                eos_tokens_id=self.tokenizer.eos_token_id,
+                eos_tokens_id=self.end_tokens,
                 logits_processor=self.processor,
                 debug=self.debug,
             )

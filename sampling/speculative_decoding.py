@@ -170,5 +170,10 @@ def speculative_generate(
             printing.speculative_step(tokenizer, copied_inputs_ids, input_ids, n, prompt_len, current_position, corrected_gamma)
             
         current_position += n + 1
+        
+        if torch.isin(x, stop_tokens):
+            if debug:
+                printing.end_token_found(n)
+            return input_ids[0, prompt_len:current_position].tolist(), drafts_accepted / drafts_speculated
     
     return input_ids[0, prompt_len:].tolist(), drafts_accepted / drafts_speculated
