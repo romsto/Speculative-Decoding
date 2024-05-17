@@ -38,7 +38,7 @@ def autoregressive_generate(
     cache = None
     prompt_len = len(inputs)
     # prepare input tensor
-    total_len = min(512, prompt_len + max_gen_len)
+    total_len = min(model.config.max_position_embeddings, prompt_len + max_gen_len)
     input_ids = torch.full(
         (1, total_len), pad_token_id, dtype=torch.long, device=model.device
     )

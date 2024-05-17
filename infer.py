@@ -81,7 +81,6 @@ class InferenceCLI:
             device_map=self.device,
             trust_remote_code=True,
         )
-        self.target.generate()
         self.target.eval()
 
         tokenizer_name = target_model  # "other tokenizer" target_model
@@ -209,7 +208,7 @@ class InferenceCLI:
 
     def _infer(self, prefix: str):
         if self.chat:
-            prefix = self.tokenizer.apply_chat_template(prefix, add_generation_prompt=True, tokenize=False)
+            prefix = self.tokenizer.apply_chat_template([{"role": "user", "content": prefix}], add_generation_prompt=True, tokenize=False)
             
         tokenized = self.tokenizer(prefix, return_tensors="pt").input_ids[0].tolist()
 
