@@ -134,7 +134,7 @@ def speculative_generate(
         fractions = p / q
         n = corrected_gamma
         for i in range(corrected_gamma):
-            if r[i] > fractions[0, i, copied_inputs_ids[0, prompt_len + i]]:
+            if r[i] > fractions[0, i, copied_inputs_ids[0, current_position + i]]:
                 n = i
                 break
         
