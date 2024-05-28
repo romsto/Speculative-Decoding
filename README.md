@@ -3,6 +3,8 @@
 This repository is a pytorch implementation of Speculative Decoding / Speculative Sampling ([Leviathan et al., 2023](#1);[Chen et al., 2023](#2)).
 It contains the code for two generation strategies: classic auto-regressive decoding and speculative decoding. Both of these generation strategies can be used in a greedy or nucleus sampling (temperature, top k and top p) setting.
 
+<img src="example.png" alt="Example of generation." width="600"/>
+
 ## What is Speculative Decoding?
 
 Speculative Decoding is a decoding strategy for transformers that allows to generate sequences faster than the classic auto-regressive decoding without changing the output distribution or requiring further fine-tuning. It uses a smaller, more efficient approximation model (called a "drafter") to generate speculative token prefixes. These prefixes are then evaluated in parallel by the larger target model, reducing the number of serial decoding steps required and leading to inference speedups.
@@ -15,14 +17,14 @@ The core process rely on the specific behavior of the Transformer model that all
 This project requires Python 3.7 or later and the following dependencies:
 
 ```
-datasets==2.18.0
-numpy==1.26.4
-rich==13.7.1
-termcolor==2.4.0
-tokenizers==0.15.2
-torch==2.2.2
-tqdm==4.66.2
-transformers==4.39.2
+rich
+tqdm
+termcolor
+tokenizers==0.19.1
+torch==2.3.0
+transformers==4.41.1
+accelerate==0.30.1
+bitsandbytes==0.43.1
 ```
 
 Simply fork this repository and install the dependencies.

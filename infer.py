@@ -9,7 +9,6 @@ from transformers import (
     AutoModelForCausalLM,
     QuantoConfig,
 )
-from models import NgramModel
 import time
 import os
 from termcolor import colored
@@ -53,11 +52,11 @@ class InferenceCLI:
             },
         }
         self.selected_processor = {
-            "name": "nucleus",
-            "processor": NucleusProcessor,
-            "args": {"temperature": .6, "top_p": .9},
+            "name": "greedy",
+            "processor": GreedyProcessor,
+            "args": {"temperature": 1.0},
         }
-        self.processor = NucleusProcessor(temperature=.6, top_p=.9)
+        self.processor = GreedyProcessor(temperature=1.0)
 
         self._load_models()
         self._run()
@@ -83,10 +82,10 @@ class InferenceCLI:
         )
         self.target.eval()
 
-        tokenizer_name = target_model  # "other tokenizer" target_model
+        tokenizer_name = target_model  # "meta-llama/Llama-2-7b-hf" target_model
         if tokenizer_name != target_model:
             print(colored("Warning: Tokenizer is different from target model. Use with caution.", "red"))
-        self.tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
+        self.tokenizer = AutoTokenizer.from_pretrained(tokenizer_name, trust_remote_code=True)
 
         self.drafter = AutoModelForCausalLM.from_pretrained(
             drafter_model,
@@ -126,6 +125,10 @@ class InferenceCLI:
         if args[0] == "/target":
             self.target_gen = not self.target_gen
             print(colored(f"Target generation: {self.target_gen}", on_color="on_blue"))
+            return
+        if args[0] == "/chat":
+            self.chat = not self.chat
+            print(colored(f"Chat mode: {self.chat}", on_color="on_blue"))
             return
         if args[0] == "/length":
             if len(args) < 2:
@@ -196,6 +199,8 @@ class InferenceCLI:
         print(colored(f"\t{self.dr}", "green" if self.dr else "red"))
         print("/cache: toggle cache")
         print(colored(f"\t{self.cache}", "green" if self.cache else "red"))
+        print("/chat: toggle chat mode")
+        print(colored(f"\t{self.chat}", "green" if self.chat else "red"))
         print("/length <value>: set generation length")
         print(colored(f"\t{self.gen_len}", "blue"))
         print("/gamma <value>: set gamma")
@@ -235,7 +240,7 @@ class InferenceCLI:
             spec_output = self.tokenizer.decode(output_ids, skip_special_tokens=True)
             print(colored("========== Speculative ==========", "green"))
             print(colored("Out:", "green"), spec_output)
-            print(colored(f"Accept rate: {accept_rate:.3f}", "green"))
+            print(colored(f"Acceptance rate: {accept_rate:.3f}", "green"))
             spec_throughput = len(spec_output) / (spec_end_time - spec_start_time)
             print(colored(f"Throughput: {spec_throughput:.1f} tokens/s", "green"))
             print(colored("========== Speculative ==========", "green"))
