@@ -94,6 +94,12 @@ def speculative_generate(
         t = logits_processor.sample(p_p)
         input_ids[0, prompt_len] = t
         current_position += 1
+        
+        if torch.isin(x, stop_tokens):
+            if debug:
+                printing.end_token_found(n)
+            return input_ids[0, prompt_len:current_position].tolist(), 0
+        
         if debug:
             printing.initial_step(t, tokenizer)
     
@@ -101,12 +107,12 @@ def speculative_generate(
         corrected_gamma = min(gamma, total_len - current_position - 1)
         q = torch.zeros((1, corrected_gamma, vocabulary_size), device=target.device)
         
-        copied_inputs_ids = input_ids.clone().to(drafter.device)
+        input_ids = input_ids.to(drafter.device)
         
         # generate gamma drafts
         for k in range(corrected_gamma):
             Mq = drafter(
-                input_ids=copied_inputs_ids[..., :current_position + k],
+                input_ids=input_ids[..., :current_position + k],
                 past_key_values=drafter_cache,
                 use_cache=use_cache,
             )
@@ -116,13 +122,13 @@ def speculative_generate(
             draft_probs = logits_processor(draft_logits)
             q[0, k] = draft_probs.to(target.device)
             xi = logits_processor.sample(draft_probs)
-            copied_inputs_ids[0, current_position + k] = xi
+            input_ids[0, current_position + k] = xi
         drafts_speculated += corrected_gamma
-        copied_inputs_ids = copied_inputs_ids.to(target.device)
+        input_ids = input_ids.to(target.device)
         
         # run target model on drafts and get logits of the previous tokens plus one more token
         Mp = target(
-            input_ids=copied_inputs_ids[..., :current_position + corrected_gamma],
+            input_ids=input_ids[..., :current_position + corrected_gamma],
             past_key_values=target_cache,
             use_cache=use_cache,
         )
@@ -135,19 +141,19 @@ def speculative_generate(
         fractions = p / q
         n = corrected_gamma
         for i in range(corrected_gamma):
-            if r[i] > fractions[0, i, copied_inputs_ids[0, current_position + i]]:
+            if r[i] > fractions[0, i, input_ids[0, current_position + i]]:
                 n = i
                 break
         
         drafts_accepted += n
         
         # check if the end token is in the drafts
-        stop_locations = torch.nonzero(torch.eq(copied_inputs_ids[..., current_position:current_position + n], stop_tokens))
+        stop_locations = torch.nonzero(torch.eq(input_ids[..., current_position:current_position + n], stop_tokens))
         if stop_locations.shape[0] > 0:
             stop_location = stop_locations[0, 1].item()
             if debug:
                 printing.end_token_found(stop_location)
-            return copied_inputs_ids[0, prompt_len:current_position + stop_location + 1].tolist(), drafts_accepted / drafts_speculated
+            return input_ids[0, prompt_len:current_position + stop_location + 1].tolist(), drafts_accepted / drafts_speculated
 
         # adjust the distribution from Mp
         if n == corrected_gamma:
@@ -164,11 +170,15 @@ def speculative_generate(
             else:
                 p_p = p[..., n, :]
         x = logits_processor.sample(p_p)
-        input_ids[0, current_position:current_position + n] = copied_inputs_ids[0, current_position:current_position + n]
+        
+        if debug:
+            generated = input_ids.clone().detach()
+            
+        input_ids[0, current_position + n:current_position + corrected_gamma] = pad_token_id
         input_ids[0, current_position + n] = x
         
         if debug:
-            printing.speculative_step(tokenizer, copied_inputs_ids, input_ids, n, prompt_len, current_position, corrected_gamma)
+            printing.speculative_step(tokenizer, generated, input_ids, n, prompt_len, current_position, corrected_gamma)
             
         current_position += n + 1
         
