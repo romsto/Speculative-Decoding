@@ -92,12 +92,12 @@ def speculative_generate(
         target_cache = Mp.past_key_values
         p_p = logits_processor(Mp.logits[..., -1, :])
         t = logits_processor.sample(p_p)
-        input_ids[0, prompt_len] = t
+        input_ids[0, current_position] = t
         current_position += 1
         
-        if torch.isin(x, stop_tokens):
+        if torch.isin(t, stop_tokens):
             if debug:
-                printing.end_token_found(n)
+                printing.end_token_found(0)
             return input_ids[0, prompt_len:current_position].tolist(), 0
         
         if debug:
