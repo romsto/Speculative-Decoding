@@ -14,7 +14,7 @@ def autoregressive_generate(
     logits_processor: LogitsProcessor = GreedyProcessor(temperature=1),
     eos_tokens_id: int | List[int] = 1,
     pad_token_id: int = 0,
-    use_cache: bool = True,
+    use_cache: bool = False,
     debug: bool = False,
 ):
     """

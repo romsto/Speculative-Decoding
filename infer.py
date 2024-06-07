@@ -29,7 +29,7 @@ class InferenceCLI:
         self.debug = False
         self.spec = True
         self.dr = False
-        self.cache = True
+        self.cache = False
         self.target_gen = True
         self.chat = True # If using a chat instructed model, set to True
         
