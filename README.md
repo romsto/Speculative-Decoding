@@ -101,7 +101,6 @@ output_ids_sd, alpha = speculative_generate( # or speculative_generate_encoder_d
                 input_ids,
                 drafter,
                 target,
-                tokenizer,
                 logits_processor=logits_processor,
                 gamma=gamma,
                 max_gen_len=gen_len,
@@ -124,6 +123,7 @@ python infer.py
 ```
 
 To change the models used, you can change the `target_model_name` and `drafter_model_name` in the `infer.py` file.
+Be careful to change the generate methods to encoder-decoder models if you are using encoder-decoder models.
 
 ## Did you find any bug?
 

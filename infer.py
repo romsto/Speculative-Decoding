@@ -228,7 +228,7 @@ class InferenceCLI:
                 tokenized,
                 self.drafter,
                 self.target,
-                self.tokenizer,
+                tokenizer=self.tokenizer,
                 logits_processor=self.processor,
                 gamma=self.gamma,
                 max_gen_len=self.gen_len,
