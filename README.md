@@ -1,7 +1,7 @@
 # Speculative Decoding
 
 This repository is a pytorch implementation of Speculative Decoding / Speculative Sampling ([Leviathan et al., 2023](#1);[Chen et al., 2023](#2)).
-It contains the code for two generation strategies: classic auto-regressive decoding and speculative decoding. Both of these generation strategies can be used in a greedy or nucleus sampling (temperature, top k and top p) setting.
+It contains the code for three generation strategies: classic auto-regressive decoding, beam search decoding (with length penalty) and speculative decoding. Auto-regressive decoding and Speculative Decoding can be used in a greedy or nucleus sampling (temperature, top k and top p) setting.
 
 <img src="example.png" alt="Example of generation." width="600"/>
 
@@ -45,12 +45,12 @@ Here are some requirements to make speculative decoding work:
 ```python
 from transformers import AutoTokenizer, AutoModelForCausalLM
 
-# We will use the Google Gemma 7B Instruct as the model we want to accelerate (7B parameters)
-target_model_name = "google/gemma-7b-it"
+# We will use the Google Gemma 2 27B Instruct as the model we want to accelerate (27B parameters)
+target_model_name = "google/gemma-2-27b-it"
 target = AutoModelForCausalLM.from_pretrained(target_model_name)
 
-# We will use the Google Gemma 2B Instruct as the drafter model (2B parameters)
-drafter_model_name = "google/gemma-2b-it"
+# We will use the Google Gemma 2 9B Instruct as the drafter model (9B parameters)
+drafter_model_name = "google/gemma-2-9b-it"
 drafter = AutoModelForCausalLM.from_pretrained(drafter_model_name)
 
 # Don't forget to load the tokenizer
@@ -112,6 +112,24 @@ output_sd = tokenizer.decode(output_ids_sd, skip_special_tokens=True)
 print("Auto-regressive decoding:", output_ar)
 print("Speculative decoding:", output_sd)
 print("Acceptance rate:", alpha) # Number of drafts accepted by the target model divided by the number of drafts generated
+```
+
+To use Beam Search Decoding, you can use the `beam_search_generate` function. The `beam_search_generate` function requires `top_k` (number of tokens to evaluate at each branch), `num_beams` (number of beams that run in parallel), `min_length` and `alpha` (for length penalty) hyperparameters.
+
+```python
+from sampling import beam_search_generate # Beam Search Decoding is not compatible with encoder-decoder models yet.
+
+output_ids_bs = beam_search_generate(
+                input_ids,
+                target,
+                max_gen_len=gen_len,
+                end_tokens_id=tokenizer.eos_token_id,
+                pad_token_id=tokenizer.pad_token_id,
+                top_k=3,
+                num_beams=5,
+                min_length=5,
+                alpha=1.2,
+            )
 ```
 
 ### 2. Run console interface Inference

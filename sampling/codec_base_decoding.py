@@ -15,7 +15,7 @@ def autoregressive_generate_encoder_decoder(
     pad_token_id: int = 0,
     use_cache: bool = False,
     debug: bool = False,
-):
+) -> List[int]:
     """
     Generate text sequence autoregressively based on the input sequence.
 

@@ -1,3 +1,4 @@
+from typing import List, Tuple
 from termcolor import colored
 from torch import Tensor
 
@@ -41,3 +42,13 @@ def speculative_step(
     print(colored(token_ids_to_string(inputs[0, current_position : current_position + n], tokenizer), "green"), end=(" " if n > 0 else ""))
     print(colored(token_ids_to_string(current_inputs[0, current_position + n : current_position + corrected_gamma], tokenizer), "red"), end=(" " if n < corrected_gamma else ""))
     print(colored(token_ids_to_string(inputs[..., current_position + n], tokenizer), "blue"))
+
+
+def beam_search_step(possibilities: List[Tuple[float, Tensor, Tensor]], current_position: int, tokenizer):
+    print(
+        f"{colored('Beam Search Step', on_color='on_dark_grey', color='white')} Token {current_position}:"
+    )
+    
+    for i, (prob, tokens, _) in enumerate(possibilities):
+        print(f"{i+1}. {prob:.3f}\t{token_ids_to_string(tokens[:current_position - 1], tokenizer)} {colored(token_ids_to_string(tokens[current_position - 1:current_position], tokenizer), 'blue')}")
+        

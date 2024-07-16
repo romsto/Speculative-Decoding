@@ -1,4 +1,4 @@
-from .base_decoding import autoregressive_generate
+from .base_decoding import autoregressive_generate, beam_search_generate
 from .speculative_decoding import speculative_generate
-from .codec_base_decoding import autoregressive_generate_encoder_decoder
-from .codec_speculative_decoding import speculative_generate_encoder_decoder
+from .base_decoding_codec import autoregressive_generate_encoder_decoder
+from .speculative_decoding_codec import speculative_generate_encoder_decoder
