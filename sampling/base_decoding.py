@@ -1,7 +1,6 @@
 from math import inf
 import torch
 from torch.nn import Module
-from transformers.cache_utils import DynamicCache
 from utils.logits_processor import LogitsProcessor, GreedyProcessor
 import utils.printing as printing
 from typing import List
@@ -36,17 +35,13 @@ def autoregressive_generate(
     Note:
         This generation methods only works for decoder-only models.
     """
-    cache = DynamicCache()
+    cache = None
     prompt_len = len(inputs)
     # prepare input tensor
     max_seq_length = model.config.max_position_embeddings if hasattr(model.config, 'max_position_embeddings') else (model.config.max_context_length if hasattr(model.config, 'max_context_length') else 1024)
     total_len = min(max_seq_length, prompt_len + max_gen_len)
-    input_ids = torch.full(
-        (1, total_len), pad_token_id, dtype=torch.long, device=model.device
-    )
-    input_ids[0, :prompt_len] = torch.tensor(
-        inputs, dtype=torch.long, device=model.device
-    )
+    input_ids = torch.full((1, total_len), pad_token_id, dtype=torch.long, device=model.device)
+    input_ids[0, :prompt_len] = torch.tensor(inputs, dtype=torch.long, device=model.device)
 
     list_tokens_id = (
         eos_tokens_id if isinstance(eos_tokens_id, list) else [eos_tokens_id]
@@ -167,9 +162,7 @@ def beam_search_generate(
                         already_in = True
                         break
                 if not already_in:
-                    possibilities.append(
-                        (new_prob / (lp if lp != 0 else 1), input_vec, prob_vec, last_token_idx)
-                    )
+                    possibilities.append((new_prob / (lp if lp != 0 else 1), input_vec, prob_vec, last_token_idx))
 
         possibilities.sort(key=lambda x: x[0], reverse=True)
 

@@ -3,7 +3,7 @@ import random
 import numpy as np
 import torch
 from sampling import autoregressive_generate, speculative_generate
-from utils.logits_processor import GreedyProcessor, MultinomialProcessor, TopKProcessor, NucleusProcessor
+from utils.logits_processor import GreedyProcessor, MultinomialProcessor, TopKProcessor, NucleusProcessor, TopKNucleusProcessor
 from transformers import (
     AutoTokenizer,
     AutoModelForCausalLM,
@@ -50,6 +50,10 @@ class InferenceCLI:
                 "processor": NucleusProcessor,
                 "building_args": {"temperature": float, "top_p": float},
             },
+            "topknucleus": {
+                "processor": TopKNucleusProcessor,
+                "building_args": {"temperature": float, "top_k": int, "top_p": float},
+            },
         }
         self.selected_processor = {
             "name": "greedy",
@@ -63,12 +67,12 @@ class InferenceCLI:
 
     def _load_models(self):
         # Target model
-        target_model = "google/gemma-7b-it"  # "google/gemma-7b-it" "apple/OpenELM-3B"
-        target_quantize = QuantoConfig(weights="int8")  # QuantoConfig(weights="int8")
+        target_model = "google/gemma-2-2b-it"
+        target_quantize = QuantoConfig(weights="int8")  # QuantoConfig(weights="int8")  None
         
         # Drafter model
-        drafter_model = "google/gemma-2b-it"  # "google/gemma-2b-it" "apple/OpenELM-270M"
-        drafter_quantize = QuantoConfig(weights="int8")  # QuantoConfig(weights="int8")
+        drafter_model = "google/gemma-2-9b-it"
+        drafter_quantize = QuantoConfig(weights="int8")  # QuantoConfig(weights="int8") None
 
         print(colored("Target model:", on_color="on_yellow"), target_model)
         print(colored("Drafter model:", on_color="on_yellow"), drafter_model)
@@ -82,7 +86,7 @@ class InferenceCLI:
         )
         self.target.eval()
 
-        tokenizer_name = target_model  # "meta-llama/Llama-2-7b-hf" target_model
+        tokenizer_name = target_model
         if tokenizer_name != target_model:
             print(colored("Warning: Tokenizer is different from target model. Use with caution.", "red"))
         self.tokenizer = AutoTokenizer.from_pretrained(tokenizer_name, trust_remote_code=True)
@@ -108,11 +112,7 @@ class InferenceCLI:
             return
         if args[0] == "/speculative":
             self.spec = not self.spec
-            print(
-                colored(
-                    f"Speculative Decoding generation: {self.spec}", on_color="on_blue"
-                )
-            )
+            print(colored(f"Speculative Decoding generation: {self.spec}", on_color="on_blue"))
             return
         if args[0] == "/drafter":
             self.dr = not self.dr
@@ -121,6 +121,8 @@ class InferenceCLI:
         if args[0] == "/cache":
             self.cache = not self.cache
             print(colored(f"Cache: {self.cache}", on_color="on_blue"))
+            if self.cache:
+                print(colored("Warning, cache feature is very unstable accross different models. It might generate errors or just perturb the generation. Use with caution.", "red"))
             return
         if args[0] == "/target":
             self.target_gen = not self.target_gen
@@ -265,12 +267,7 @@ class InferenceCLI:
             print(colored(f"Throughput: {base_throughput:.1f} tokens/s", "blue"))
             print(colored("=========== Target AR ===========", "blue"))
             if self.spec and base_throughput > 0.0:
-                print(
-                    colored(
-                        f"Throughput increase: {((spec_throughput / base_throughput)) * 100:.1f}%",
-                        "magenta",
-                    )
-                )
+                print(colored(f"Throughput increase: {((spec_throughput / base_throughput)) * 100:.1f}%", "magenta"))
 
         if self.dr:
             self._set_seed(42)
@@ -312,9 +309,7 @@ class InferenceCLI:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Speculative Decoding CLI")
-    parser.add_argument(
-        "--device", type=str, default="cuda", help="Device to use for inference"
-    )
+    parser.add_argument("--device", type=str, default="cuda", help="Device to use for inference")
     args = parser.parse_args()
 
     InferenceCLI(device=args.device)

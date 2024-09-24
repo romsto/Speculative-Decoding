@@ -61,14 +61,12 @@ def speculative_generate_encoder_decoder(
     Note ter: NgramModels are currently not supported.
     """
     
-    drafter_cache = None
-    target_cache = None
-    
+    drafter_cache, target_cache = None, None
+
     list_tokens_id = eos_tokens_id if isinstance(eos_tokens_id, list) else [eos_tokens_id]
     stop_tokens = torch.tensor(list_tokens_id, dtype=torch.long, device=target.device).unsqueeze(1)
     
-    drafts_accepted = .0
-    drafts_speculated = .0
+    drafts_accepted, drafts_speculated = .0, .0
     
     vocabulary_size = target.config.vocab_size    
         

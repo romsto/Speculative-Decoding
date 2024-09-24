@@ -48,9 +48,7 @@ def autoregressive_generate_encoder_decoder(
     )
     decoded_ids[0, 0] = decoder_start_token
 
-    list_tokens_id = (
-        eos_tokens_id if isinstance(eos_tokens_id, list) else [eos_tokens_id]
-    )
+    list_tokens_id = (eos_tokens_id if isinstance(eos_tokens_id, list) else [eos_tokens_id])
     stop_tokens = torch.tensor(list_tokens_id, dtype=torch.long, device=model.device)
 
     for curr in range(1, total_len):

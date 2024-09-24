@@ -3,9 +3,7 @@ from torch import Tensor
 from transformers.cache_utils import DynamicCache
 
 
-def prune_cache(
-    cache: Union[Tuple[Tuple[Tensor, Tensor]], DynamicCache], num_tokens_to_discard: int
-):
+def prune_cache(cache: Union[Tuple[Tuple[Tensor, Tensor]], DynamicCache], num_tokens_to_discard: int):
     """
     Prune the cache by removing the specified number of tokens from the end.
 
@@ -16,6 +14,8 @@ def prune_cache(
     Returns:
         Union[Tuple[Tuple[Tensor, Tensor]], DynamicCache]: The pruned KV cache.
     """
+    if cache is None:
+        return None
     if isinstance(cache, tuple):
         return prune_tuple_cache(cache, num_tokens_to_discard)
     elif isinstance(cache, DynamicCache):
@@ -70,12 +70,8 @@ def prune_dynamic_cache(cache: DynamicCache, num_tokens_to_discard: int):
         return None
 
     for layer in range(len(cache)):
-        cache.key_cache[layer] = cache.key_cache[layer][
-            :, :, :-num_tokens_to_discard, :
-        ]
-        cache.value_cache[layer] = cache.value_cache[layer][
-            :, :, :-num_tokens_to_discard, :
-        ]
+        cache.key_cache[layer] = cache.key_cache[layer][:, :, :-num_tokens_to_discard, :]
+        cache.value_cache[layer] = cache.value_cache[layer][:, :, :-num_tokens_to_discard, :]
     cache._seen_tokens -= num_tokens_to_discard
 
     return cache

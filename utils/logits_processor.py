@@ -26,7 +26,7 @@ class LogitsProcessor(abc.ABC):
 class GreedyProcessor(LogitsProcessor):
     """Greedy: Most probable token."""
 
-    def __init__(self, temperature: float):
+    def __init__(self, temperature: float = 1):
         super().__init__(temperature)
 
     def _process(self, logits: Tensor) -> Tensor:
@@ -71,6 +71,28 @@ class NucleusProcessor(MultinomialProcessor):
         self.top_p = top_p
 
     def _process(self, logits: Tensor) -> Tensor:
+        sorted_logits, sorted_indices = torch.sort(logits, descending=True)
+        cumulative_probs = torch.cumsum(F.softmax(sorted_logits, dim=-1), dim=-1)
+        sorted_indices_to_remove = cumulative_probs > self.top_p
+        sorted_indices_to_remove[..., 1:] = sorted_indices_to_remove[..., :-1].clone()
+        sorted_indices_to_remove[..., 0] = 0
+        sorted_logits[sorted_indices_to_remove] = -1e20
+        logits = torch.gather(sorted_logits, -1, sorted_indices.argsort(-1))
+        return logits
+    
+    
+class TopKNucleusProcessor(MultinomialProcessor):
+    """Top-k and nucleus: Top-k sampling with top-p fallback."""
+
+    def __init__(self, temperature: float, top_k: int, top_p: float):
+        super().__init__(temperature)
+        self.top_k = top_k
+        self.top_p = top_p
+
+    def _process(self, logits: Tensor) -> Tensor:
+        top_k = min(self.top_k, logits.size(-1))
+        indices_to_remove = logits < torch.topk(logits, top_k, dim=-1)[0][..., -1, None]
+        logits[indices_to_remove] = -1e20
         sorted_logits, sorted_indices = torch.sort(logits, descending=True)
         cumulative_probs = torch.cumsum(F.softmax(sorted_logits, dim=-1), dim=-1)
         sorted_indices_to_remove = cumulative_probs > self.top_p

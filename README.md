@@ -1,6 +1,6 @@
 # Speculative Decoding
 
-This repository is a pytorch implementation of Speculative Decoding / Speculative Sampling ([Leviathan et al., 2023](#1);[Chen et al., 2023](#2)).
+This repository is a pytorch implementation of Speculative Decoding / Speculative Sampling ([Leviathan et al., 2023](#1); [Chen et al., 2023](#2)).
 It contains the code for three generation strategies: classic auto-regressive decoding, beam search decoding (with length penalty) and speculative decoding. Auto-regressive decoding and Speculative Decoding can be used in a greedy or nucleus sampling (temperature, top k and top p) setting.
 
 <img src="example.png" alt="Example of generation." width="600"/>
@@ -20,11 +20,11 @@ This project requires Python 3.7 or later and the following dependencies:
 rich
 tqdm
 termcolor
-tokenizers==0.19.1
-torch==2.3.0
-transformers==4.41.1
-accelerate==0.30.1
-bitsandbytes==0.43.1
+tokenizers>=0.19.1
+torch>=2.3.0
+transformers>=4.41.1
+accelerate>=0.30.1
+bitsandbytes>=0.43.1
 ```
 
 Simply fork this repository and install the dependencies.
@@ -142,6 +142,10 @@ python infer.py
 
 To change the models used, you can change the `target_model_name` and `drafter_model_name` in the `infer.py` file.
 Be careful to change the generate methods to encoder-decoder models if you are using encoder-decoder models.
+
+## Known issues
+### Cache feature
+The cache feature is very inconsistent and sometimes incorrectly implemented in huggingface transformers (mainly depending on the model). This can lead to incorrect results or even errors when using the cache feature. To avoid this issue, you can disable the cache feature by setting `use_cache=False` in the generate methods. This will slow down the generation but will avoid any cache-related issues.
 
 ## Did you find any bug?
 

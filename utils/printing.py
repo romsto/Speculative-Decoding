@@ -22,9 +22,7 @@ def end_token_found(location: int):
 
 
 def initial_step(token: Tensor, tokenizer):
-    print(
-        f"{colored('Initiale Step', on_color='on_dark_grey', color='white')} 1 token:"
-    )
+    print(f"{colored('Initiale Step', on_color='on_dark_grey', color='white')} 1 token:")
     print(colored(token_ids_to_string(token, tokenizer), "blue"))
 
 
@@ -45,10 +43,7 @@ def speculative_step(
 
 
 def beam_search_step(possibilities: List[Tuple[float, Tensor, Tensor]], current_position: int, tokenizer):
-    print(
-        f"{colored('Beam Search Step', on_color='on_dark_grey', color='white')} Token {current_position}:"
-    )
+    print(f"{colored('Beam Search Step', on_color='on_dark_grey', color='white')} Token {current_position}:")
     
     for i, (prob, tokens, _) in enumerate(possibilities):
         print(f"{i+1}. {prob:.3f}\t{token_ids_to_string(tokens[:current_position - 1], tokenizer)} {colored(token_ids_to_string(tokens[current_position - 1:current_position], tokenizer), 'blue')}")
-        
