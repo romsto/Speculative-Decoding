@@ -11,7 +11,7 @@ def autoregressive_generate(
     inputs: List[int],
     model: Module,
     max_gen_len: int = 40,
-    logits_processor: LogitsProcessor = GreedyProcessor(temperature=1),
+    logits_processor: LogitsProcessor = GreedyProcessor(),
     eos_tokens_id: int | List[int] = 1,
     pad_token_id: int = 0,
     use_cache: bool = False,

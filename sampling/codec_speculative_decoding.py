@@ -17,6 +17,7 @@ def max_fn(x: torch.Tensor) -> torch.Tensor:
     x_max_sum = torch.sum(x_max, dim=-1, keepdim=True)
     return x_max / x_max_sum
 
+
 @torch.no_grad()
 def speculative_generate_encoder_decoder(
     inputs: List[int],
@@ -24,7 +25,7 @@ def speculative_generate_encoder_decoder(
     target: Module,
     tokenizer = None,
     gamma: int = 5,
-    logits_processor: LogitsProcessor = GreedyProcessor(temperature=1),
+    logits_processor: LogitsProcessor = GreedyProcessor(),
     max_gen_len: int = 40,
     eos_tokens_id: int | List[int] = 1,
     pad_token_id: int = 0,
