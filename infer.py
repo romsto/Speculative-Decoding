@@ -3,6 +3,7 @@ import random
 import numpy as np
 import torch
 from sampling import autoregressive_generate, speculative_generate
+from ngram_assisted import SimpleDynaGram, MultiDynaGram, ngram_assisted_speculative_generate
 from utils.logits_processor import GreedyProcessor, MultinomialProcessor, TopKProcessor, NucleusProcessor, TopKNucleusProcessor
 from transformers import (
     AutoTokenizer,
@@ -31,6 +32,13 @@ class InferenceCLI:
         self.dr = False
         self.cache = False
         self.target_gen = True
+        # Ngram Assisted Generation
+        self.ngram_gen = True
+        self.ngram = None
+        self.top_k_filler = 3
+        self.ngram_n = 3
+        self.reset_in_between = True
+        
         self.chat = True # If using a chat instructed model, set to True
         
         self.processors = {
@@ -60,18 +68,18 @@ class InferenceCLI:
             "processor": GreedyProcessor,
             "args": {"temperature": 1.0},
         }
-        self.processor = GreedyProcessor(temperature=1.0)
+        self.processor = GreedyProcessor()
 
         self._load_models()
         self._run()
 
     def _load_models(self):
         # Target model
-        target_model = "google/gemma-2-2b-it"
+        target_model = "meta-llama/Llama-3.2-3B-Instruct"
         target_quantize = QuantoConfig(weights="int8")  # QuantoConfig(weights="int8")  None
         
         # Drafter model
-        drafter_model = "google/gemma-2-9b-it"
+        drafter_model = "meta-llama/Llama-3.2-1B-Instruct"
         drafter_quantize = QuantoConfig(weights="int8")  # QuantoConfig(weights="int8") None
 
         print(colored("Target model:", on_color="on_yellow"), target_model)
@@ -99,7 +107,9 @@ class InferenceCLI:
         )
         self.drafter.eval()
         
-        self.end_tokens = self.tokenizer.eos_token_id
+        self.ngram = MultiDynaGram(n=3, vocab_size=self.target.config.vocab_size)
+        
+        self.end_tokens = [self.tokenizer.eos_token_id, self.tokenizer.convert_tokens_to_ids("<|eot_id|>")] # "<|eot_id|>" is the end of turn token for Llama model.
 
     def _perform_command(self, command: str):
         args = command.split(" ")
@@ -184,7 +194,39 @@ class InferenceCLI:
             }
             self.processor = processor["processor"](**processor_args)
             return
-
+        # Ngram Assisted Generation
+        if args[0] == "/ngram":
+            self.ngram_gen = not self.ngram_gen
+            print(colored(f"Ngram assisted generation: {self.ngram_gen}", on_color="on_blue"))
+            return
+        if args[0] == "/top_k_filler":
+            if len(args) < 2:
+                print(colored("Usage: /top_k_filler <value>", "red"))
+                return
+            self.top_k_filler = int(args[1])
+            print(colored(f"Top k filler: {int(args[1])}", on_color="on_blue"))
+            return
+        if args[0] == "/set_ngram":
+            if len(args) < 3:
+                print(colored("Usage: /set_ngram <simple/multi> <n>", "red"))
+                return
+            if args[1] == "simple":
+                ntype = SimpleDynaGram
+            elif args[1] == "multi":
+                ntype = MultiDynaGram
+            else:
+                print(colored("Invalid ngram type", "red"))
+                return
+            self.ngram = ntype(n=int(args[2]), vocab_size=self.target.config.vocab_size)
+            self.ngram_n = int(args[2])
+            print(colored(f"Ngram type: {args[1]}", "blue"))
+            print(colored(f"Ngram n: {int(args[2])}", "blue"))
+            return
+        if args[0] == "/reset_in_between":
+            self.reset_in_between = not self.reset_in_between
+            print(colored(f"Reset ngram in between each generation: {self.reset_in_between}", on_color="on_blue"))
+            return
+        print(colored("Unknown command", "red"))
         self._help()
 
     def _help(self):
@@ -211,6 +253,15 @@ class InferenceCLI:
         print(colored(f"\t{self.selected_processor['name']}", "blue"))
         for arg_name, arg_value in self.selected_processor["args"].items():
             print(colored(f"\t\t{arg_name}: {arg_value}", "blue"))
+        # Ngram Assisted Generation
+        print("/ngram: toggle ngram assisted generation")
+        print(colored(f"\t{self.ngram_gen}", "green" if self.ngram_gen else "red"))
+        print("/top_k_filler <value>: set top k filler for ngram update")
+        print(colored(f"\t{self.top_k_filler}", "blue"))
+        print("/set_ngram <simple/multi> <n>: set dynagram drafter")
+        print(colored(f"\t{self.ngram.__class__.__name__} {self.ngram_n}", "blue"))
+        print("/reset_in_between: toggle reset ngram in between each generation")
+        print(colored(f"\t{self.reset_in_between}", "green" if self.reset_in_between else "red"))
         
 
     def _infer(self, prefix: str):
@@ -218,7 +269,10 @@ class InferenceCLI:
             prefix = self.tokenizer.apply_chat_template([{"role": "user", "content": prefix}], add_generation_prompt=True, tokenize=False)
             
         tokenized = self.tokenizer(prefix, return_tensors="pt").input_ids[0].tolist()
-
+        
+        if self.reset_in_between:
+            self.ngram.reset()
+        
         spec_throughput = 0.0
         base_throughput = 0.0
         drafter_throughput = 0.0
@@ -246,6 +300,35 @@ class InferenceCLI:
             spec_throughput = len(spec_output) / (spec_end_time - spec_start_time)
             print(colored(f"Throughput: {spec_throughput:.1f} tokens/s", "green"))
             print(colored("========== Speculative ==========", "green"))
+            
+        if self.ngram_gen:
+            self._set_seed(42)
+            ngram_start_time = time.time()
+            output_ids, accept_rate = ngram_assisted_speculative_generate(
+                tokenized,
+                self.ngram,
+                self.target,
+                tokenizer=self.tokenizer,
+                gamma=self.gamma,
+                filler_top_k=self.top_k_filler,
+                logits_processor=self.processor,
+                max_gen_len=self.gen_len,
+                eos_tokens_id=self.end_tokens,
+                debug=self.debug,
+                use_cache=self.cache,
+                first_target=True,
+                stop_if_unknown=True,
+            )
+            ngram_end_time = time.time()
+            ngram_output = self.tokenizer.decode(output_ids, skip_special_tokens=True)
+            print(colored("========== Ngram Assisted ==========", "yellow"))
+            print(colored("Out:", "yellow"), ngram_output)
+            print(colored(f"Acceptance rate: {accept_rate:.3f}", "yellow"))
+            ngram_throughput = len(ngram_output) / (ngram_end_time - ngram_start_time)
+            print(colored(f"Throughput: {ngram_throughput:.1f} tokens/s", "yellow"))
+            print(colored("========== Ngram Assisted ==========", "yellow"))
+            if self.spec and ngram_throughput > 0.0:
+                print(colored(f"Throughput increase: {((spec_throughput / ngram_throughput)) * 100:.1f}%", "magenta"))
 
         if self.target_gen:
             self._set_seed(42)

@@ -1,9 +1,25 @@
-# Speculative Decoding
+# Speculative Decoding \ x \ Ngram Assisted Speculative Decoding
 
 This repository is a pytorch implementation of Speculative Decoding / Speculative Sampling ([Leviathan et al., 2023](#1); [Chen et al., 2023](#2)).
 It contains the code for three generation strategies: classic auto-regressive decoding, beam search decoding (with length penalty) and speculative decoding. Auto-regressive decoding and Speculative Decoding can be used in a greedy or nucleus sampling (temperature, top k and top p) setting.
 
 <img src="example.png" alt="Example of generation." width="600"/>
+
+On top of this implemenation, I added the orignial implementation of one of my idea: **Ngram Assisted Speculative Decoding** (NASD).
+I will defend this idea in my Master's thesis.
+NASD is an extension of Speculative Decoding that replaces the drafter model with an ngram model. Instead of using a separate model to generate drafts, NASD utilizes a pool of ngrams to generate speculative token prefixes. This ngram pool is updated twice: first with the ngrams from the prompt, and then with the ngrams formed by the target model (top k tokens from each generation step).
+
+The advantage of NASD is that it allows for faster generation without the need for a second model. It is training-free and model-agnostic, making it a versatile approach for accelerating sequence generation in transformers.
+
+You will find two kind of Ngram models (that I call Dynagram):
+- SimpleDynaGram: uses a fixed n for ngrams.
+- MultiDynaGram: gather all igrams for i in [2, n]
+
+Moreover, the generation of the drafts stop if an ngram is unknown. This is a way to avoid generating drafts that will be rejected by the target model.
+
+A similar approach as been introduced in NAPD ([Ou et al., 2024](#3)). To reproduce their results, you can use the NASD implementation with a SimpleDynaGram model and set top_k_filler to 1, and stop_if_unknown to False.
+
+*The documentation of NASD will be published soon...*
 
 ## What is Speculative Decoding?
 
@@ -45,12 +61,12 @@ Here are some requirements to make speculative decoding work:
 ```python
 from transformers import AutoTokenizer, AutoModelForCausalLM
 
-# We will use the Google Gemma 2 27B Instruct as the model we want to accelerate (27B parameters)
-target_model_name = "google/gemma-2-27b-it"
+# We will use the Google Llama-3.2 3B Instruct as the model we want to accelerate (3B parameters)
+target_model_name = "meta-llama/Llama-3.2-3B-Instruct"
 target = AutoModelForCausalLM.from_pretrained(target_model_name)
 
-# We will use the Google Gemma 2 9B Instruct as the drafter model (9B parameters)
-drafter_model_name = "google/gemma-2-9b-it"
+# We will use the Google Llama-3.2 1B Instruct as the drafter model (1B parameters)
+drafter_model_name = "meta-llama/Llama-3.2-1B-Instruct"
 drafter = AutoModelForCausalLM.from_pretrained(drafter_model_name)
 
 # Don't forget to load the tokenizer
@@ -155,3 +171,5 @@ Please open an issue or submit a pull request if you find any bug. Contributions
 <a id="1">[1]</a> Leviathan, Y., Kalman, M. &amp; Matias, Y.. (2023). Fast Inference from Transformers via Speculative Decoding. <i>Proceedings of the 40th International Conference on Machine Learning</i>, in <i>Proceedings of Machine Learning Research</i> 202:19274-19286 Available from https://proceedings.mlr.press/v202/leviathan23a.html.
 
 <a id="2">[2]</a> Chen, C., Borgeaud, S., Irving, G., Lespiau, J. B., Sifre, L., & Jumper, J. (2023). Accelerating large language model decoding with speculative sampling. arXiv preprint arXiv:2302.01318. 
+
+<a id="3">[3]</a> Jie Ou, Yueming Chen, Wenhong Tian. (2024). Lossless Acceleration of Large Language Model via Adaptive N-gram Parallel Decoding. <i>Proceedings of the 2024 Conference of the North American Chapter of the Association for Computational Linguistics: Human Language Technologies (Volume 6: Industry Track), pages 10–22</i>
