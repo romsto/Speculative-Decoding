@@ -3,7 +3,7 @@ import random
 import numpy as np
 import torch
 from sampling import autoregressive_generate, speculative_generate
-from ngram_assisted import SimpleDynaGram, MultiDynaGram, ngram_assisted_speculative_generate
+from ngram_assisted import OneLevelNGramStorage, NGramStorage, ngram_assisted_speculative_generate
 from utils.logits_processor import GreedyProcessor, MultinomialProcessor, TopKProcessor, NucleusProcessor, TopKNucleusProcessor
 from transformers import (
     AutoTokenizer,
@@ -107,7 +107,7 @@ class InferenceCLI:
         )
         self.drafter.eval()
         
-        self.ngram = MultiDynaGram(n=3, vocab_size=self.target.config.vocab_size)
+        self.ngram = NGramStorage(n=3, vocab_size=self.target.config.vocab_size)
         
         self.end_tokens = [self.tokenizer.eos_token_id, self.tokenizer.convert_tokens_to_ids("<|eot_id|>")] # "<|eot_id|>" is the end of turn token for Llama model.
 
@@ -206,14 +206,14 @@ class InferenceCLI:
             self.top_k_filler = int(args[1])
             print(colored(f"Top k filler: {int(args[1])}", on_color="on_blue"))
             return
-        if args[0] == "/set_ngram":
+        if args[0] == "/set_ngramstorage":
             if len(args) < 3:
-                print(colored("Usage: /set_ngram <simple/multi> <n>", "red"))
+                print(colored("Usage: /set_ngramstorage <basic/onelevel> <n>", "red"))
                 return
-            if args[1] == "simple":
-                ntype = SimpleDynaGram
-            elif args[1] == "multi":
-                ntype = MultiDynaGram
+            if args[1] == "onelevel":
+                ntype = OneLevelNGramStorage
+            elif args[1] == "basic":
+                ntype = NGramStorage
             else:
                 print(colored("Invalid ngram type", "red"))
                 return
@@ -258,7 +258,7 @@ class InferenceCLI:
         print(colored(f"\t{self.ngram_gen}", "green" if self.ngram_gen else "red"))
         print("/top_k_filler <value>: set top k filler for ngram update")
         print(colored(f"\t{self.top_k_filler}", "blue"))
-        print("/set_ngram <simple/multi> <n>: set dynagram drafter")
+        print("/set_ngramstorage <basic/onelevel> <n>: set ngramstorage drafter")
         print(colored(f"\t{self.ngram.__class__.__name__} {self.ngram_n}", "blue"))
         print("/reset_in_between: toggle reset ngram in between each generation")
         print(colored(f"\t{self.reset_in_between}", "green" if self.reset_in_between else "red"))

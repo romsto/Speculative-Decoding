@@ -1,2 +1,2 @@
-from .dynamic_ngram import DynaGram, SimpleDynaGram, MultiDynaGram
+from .ngram_storage import INgramStorage, OneLevelNGramStorage, NGramStorage
 from .ngram_assisted import ngram_assisted_speculative_generate

@@ -2,9 +2,9 @@ import abc
 from typing import Tuple
 import torch
 
-class DynaGram(abc.ABC):
+class INgramStorage(abc.ABC):
     """
-    Dynamic NgramModel. It adapts dynamically on the seen ngrams, and return the most likely token based on the (n-1) tokens.
+    Interface of Ngram-Storage. It adapts dynamically on the seen ngrams, and return the most likely token based on the (n-1) tokens.
     """
     
     def __init__(self, n: int, vocab_size: int):
@@ -70,7 +70,10 @@ class DynaGram(abc.ABC):
     
 
 
-class SimpleDynaGram(DynaGram):
+class OneLevelNGramStorage(INgramStorage):
+    """
+    Implementation of Ngram-Storage. It only handles n-grams and not k-grams with k in [2, n].
+    """
 
     def __init__(self, n: int, vocab_size: int):
         super().__init__(n, vocab_size)
@@ -148,8 +151,9 @@ class SimpleDynaGram(DynaGram):
 
 
 
-class MultiDynaGram(DynaGram):
-    """ DynaGram with a twist: It can handle multiple n-grams. It will search for the biggest n-gram first.
+class NGramStorage(INgramStorage):
+    """
+    Implementation of Ngram-Storage.
     """
     
     def __init__(self, n: int, vocab_size: int):
